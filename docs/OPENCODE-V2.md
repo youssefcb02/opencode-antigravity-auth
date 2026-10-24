@@ -9,7 +9,7 @@ APIs; upgrading that SDK alone does not make a V1 plugin run in V2.
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["opencode-antigravity-auth@latest"]
+  "plugins": ["@youssefcb02/opencode-antigravity-auth@latest"]
 }
 ```
 

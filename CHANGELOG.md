@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0] - 2026-10-24
+
+### Added
+
+- The `/antigravity` account list shows each account's lowest cached quota group
+  and its reset time (e.g. "81% · resets in 2h 54m"), with no network calls.
+- Picking an enabled account in `/antigravity` switches to it and closes the menu.
+  Per-account actions moved under "Manage an account…".
+
+### Changed
+
+- Published as `@youssefcb02/opencode-antigravity-auth`, a fork of
+  `opencode-antigravity-auth`. Auto-update checks and the configure-models flow
+  use the new name, and still recognize existing upstream plugin entries.
+- Installing from git (`github:youssefcb02/opencode-antigravity-auth#v2.2.0`)
+  builds `dist/` through a `prepare` script.
+
+### Fixed
+
+- Accounts whose cached reset time has passed show just their percentage instead
+  of "resets in 0m".
+
 ## [2.1.1] - 2026-10-22
 
 ### Fixed

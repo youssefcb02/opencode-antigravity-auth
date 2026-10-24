@@ -27,16 +27,19 @@ function pluginPackage(entry: LegacyPluginEntry): string {
   return typeof entry === "string" ? entry : Array.isArray(entry) ? entry[0] : entry.package;
 }
 
+// The fork publishes under its own npm scope; upstream entries still count as this plugin.
+const PACKAGE_NAMES = ["@youssefcb02/opencode-antigravity-auth", "opencode-antigravity-auth"];
+
 function isAntigravityEntry(entry: PluginEntry, configPath: string): boolean {
   const name = pluginPackage(entry).replace(/^-/, "");
-  if (name === "opencode-antigravity-auth" || name.startsWith("opencode-antigravity-auth@")) return true;
+  if (PACKAGE_NAMES.some((pkg) => name === pkg || name.startsWith(`${pkg}@`))) return true;
   const path = name.startsWith("file:") ? fileURLToPath(name)
     : isAbsolute(name) || name.startsWith(".") ? resolve(dirname(configPath), name) : undefined;
   if (!path) return false;
   const manifest = join(path, "package.json");
   if (existsSync(manifest)) {
     try {
-      return (JSON.parse(readFileSync(manifest, "utf8")) as { name?: string }).name === "opencode-antigravity-auth";
+      return PACKAGE_NAMES.includes((JSON.parse(readFileSync(manifest, "utf8")) as { name?: string }).name ?? "");
     } catch {
       // An unrelated checkout's malformed manifest must not block config writes.
       return false;
@@ -71,7 +74,7 @@ export interface UpdateConfigOptions {
 // Constants
 // =============================================================================
 
-const PLUGIN_NAME = "opencode-antigravity-auth@latest";
+const PLUGIN_NAME = "@youssefcb02/opencode-antigravity-auth@latest";
 const SCHEMA_URL = "https://opencode.ai/config.json";
 const OPENCODE_JSON_FILENAME = "opencode.json";
 const OPENCODE_JSONC_FILENAME = "opencode.jsonc";

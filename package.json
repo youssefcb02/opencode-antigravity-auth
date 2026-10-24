@@ -1,6 +1,6 @@
 {
-    "name": "opencode-antigravity-auth",
-    "version": "2.1.1",
+    "name": "@youssefcb02/opencode-antigravity-auth",
+    "version": "2.2.0",
     "description": "Google Antigravity OAuth for OpenCode, with account rotation, live models, and quota management",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -20,11 +20,11 @@
     "author": "noefabris",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/NoeFabris/opencode-antigravity-auth.git"
+        "url": "git+https://github.com/youssefcb02/opencode-antigravity-auth.git"
     },
-    "homepage": "https://github.com/NoeFabris/opencode-antigravity-auth#readme",
+    "homepage": "https://github.com/youssefcb02/opencode-antigravity-auth#readme",
     "bugs": {
-        "url": "https://github.com/NoeFabris/opencode-antigravity-auth/issues"
+        "url": "https://github.com/youssefcb02/opencode-antigravity-auth/issues"
     },
     "keywords": [
         "opencode",

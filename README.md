@@ -1,8 +1,7 @@
 # Antigravity + Gemini CLI OAuth Plugin for Opencode
 
-[![npm version](https://img.shields.io/npm/v/opencode-antigravity-auth.svg)](https://www.npmjs.com/package/opencode-antigravity-auth)
-[![npm beta](https://img.shields.io/npm/v/opencode-antigravity-auth/beta.svg?label=beta)](https://www.npmjs.com/package/opencode-antigravity-auth)
-[![npm downloads](https://img.shields.io/npm/dw/opencode-antigravity-auth.svg)](https://www.npmjs.com/package/opencode-antigravity-auth)
+[![npm version](https://img.shields.io/npm/v/@youssefcb02/opencode-antigravity-auth.svg)](https://www.npmjs.com/package/@youssefcb02/opencode-antigravity-auth)
+[![npm downloads](https://img.shields.io/npm/dw/@youssefcb02/opencode-antigravity-auth.svg)](https://www.npmjs.com/package/@youssefcb02/opencode-antigravity-auth)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![X (Twitter)](https://img.shields.io/badge/X-@dopesalmon-000000?style=flat&logo=x)](https://x.com/dopesalmon)
 
@@ -19,9 +18,13 @@ Add to `~/.config/opencode/opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["opencode-antigravity-auth@2.1.1"]
+  "plugins": ["@youssefcb02/opencode-antigravity-auth@2.2.0"]
 }
 ```
+
+This fork is published as `@youssefcb02/opencode-antigravity-auth`. The upstream package is [`opencode-antigravity-auth`](https://github.com/NoeFabris/opencode-antigravity-auth).
+
+You can also install from GitHub: use `github:youssefcb02/opencode-antigravity-auth#v2.2.0` (built on install), or download the prebuilt `.tgz` from the [releases page](https://github.com/youssefcb02/opencode-antigravity-auth/releases).
 
 Then run:
 

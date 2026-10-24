@@ -101,7 +101,7 @@ describe("findPluginEntry", () => {
     const { findPluginEntry } = await import("./checker");
     fsMock.existsSync.mockImplementation((p: string) => p.endsWith("opencode.json"));
     fsMock.readFileSync.mockReturnValue(
-      JSON.stringify({ plugin: ["opencode-antigravity-auth"] }),
+      JSON.stringify({ plugin: ["@youssefcb02/opencode-antigravity-auth"] }),
     );
     const result = findPluginEntry("/project");
     expect(result).not.toBeNull();
@@ -113,7 +113,7 @@ describe("findPluginEntry", () => {
     const { findPluginEntry } = await import("./checker");
     fsMock.existsSync.mockImplementation((p: string) => p.endsWith("opencode.json"));
     fsMock.readFileSync.mockReturnValue(
-      JSON.stringify({ plugin: ["opencode-antigravity-auth@1.5.0"] }),
+      JSON.stringify({ plugin: ["@youssefcb02/opencode-antigravity-auth@1.5.0"] }),
     );
     const result = findPluginEntry("/project");
     expect(result).not.toBeNull();
@@ -125,7 +125,7 @@ describe("findPluginEntry", () => {
     const { findPluginEntry } = await import("./checker");
     fsMock.existsSync.mockImplementation((p: string) => p.endsWith("opencode.json"));
     fsMock.readFileSync.mockReturnValue(
-      JSON.stringify({ plugin: ["opencode-antigravity-auth@latest"] }),
+      JSON.stringify({ plugin: ["@youssefcb02/opencode-antigravity-auth@latest"] }),
     );
     const result = findPluginEntry("/project");
     expect(result!.isPinned).toBe(false);
