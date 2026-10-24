@@ -11,9 +11,9 @@ Unofficial plugin. Google may restrict accounts using third-party clients.
 
 ## Setup
 
-Requires OpenCode **2.1.2+** and Node.js **20+**.
+Requires Node.js **20+**.
 
-Add to `~/.config/opencode/opencode.json`:
+**OpenCode 2.1.2+:** add to `~/.config/opencode/opencode.json`:
 
 ```json
 {
@@ -21,6 +21,14 @@ Add to `~/.config/opencode/opencode.json`:
   "plugins": ["@youssefcb02/opencode-antigravity-auth@2.2.0"]
 }
 ```
+
+**OpenCode 1.x:** run
+
+```sh
+opencode plugin @youssefcb02/opencode-antigravity-auth -g
+```
+
+This adds the plugin to both `opencode.json(c)` and `tui.json`. The `/antigravity` menu needs the `tui.json` entry, so listing the package in `opencode.json` alone isn't enough on 1.x.
 
 This fork is published as `@youssefcb02/opencode-antigravity-auth`. The upstream package is [`opencode-antigravity-auth`](https://github.com/NoeFabris/opencode-antigravity-auth).
 
@@ -32,7 +40,7 @@ Then run:
 opencode auth login google
 ```
 
-Choose **Google OAuth (Antigravity)**. Existing accounts are reused.
+Choose **Google OAuth (Antigravity)** (shown as **OAuth with Google (Antigravity)** on OpenCode 1.x). Existing accounts are reused.
 
 To use a local checkout, run `npm ci && npm run build` and replace the package name above with the checkout's absolute path.
 
