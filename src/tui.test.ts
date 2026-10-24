@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
 import type { Plugin } from "@opencode/plugin/tui"
 import type { KeymapLayer } from "@opencode/plugin/tui/context"
-import { AntigravityTuiPlugin, formatAccountQuota } from "./tui.ts"
+import TuiModule, { AntigravityTuiPlugin, antigravityLegacyTui, formatAccountQuota } from "./tui.ts"
+import { loadAccounts, updateAccounts, type AccountStorageV4 } from "./plugin/storage.ts"
+
+vi.mock("./plugin/storage.ts", async (original) => ({
+  ...await original<typeof import("./plugin/storage.ts")>(),
+  loadAccounts: vi.fn(),
+  updateAccounts: vi.fn(),
+}))
 
 async function host(actions: Array<string | undefined>, confirmed = false, overrides: Record<string, unknown> = {}) {
   let layer: KeymapLayer | undefined
@@ -71,6 +78,101 @@ describe("Antigravity native menu", () => {
     const result = await host(["account-id"])
     expect(result.rpc.update).not.toHaveBeenCalled()
     expect(result.select).toHaveBeenCalledOnce()
+  })
+})
+
+type Shown = { kind: "select" | "alert"; props: { title: string; message?: string; options?: Array<{ title: string; value: unknown; description?: string; disabled?: boolean }>; onSelect?: (option: { value: unknown }) => void } }
+
+async function legacyHost() {
+  const storage: AccountStorageV4 = {
+    version: 4,
+    activeIndex: 0,
+    activeIndexByFamily: { claude: 0, gemini: 0 },
+    accounts: [
+      { id: "first", email: "first@example.test", refreshToken: "r1", addedAt: 1, lastUsed: 1, cachedQuota: { claude: { remainingFraction: 0.814, resetTime: "2999-01-01T00:00:00Z", modelCount: 1 } } },
+      { id: "second", email: "second@example.test", refreshToken: "r2", addedAt: 2, lastUsed: 2 },
+    ],
+  }
+  vi.mocked(loadAccounts).mockImplementation(async () => storage)
+  vi.mocked(updateAccounts).mockImplementation(async (update) => { update(storage); return storage })
+  let command: { slashName: string; slashAliases: string[]; run: () => void } | undefined
+  let shown: Shown | undefined
+  const dispose = vi.fn(async () => undefined)
+  const toast = vi.fn()
+  const clear = vi.fn()
+  await antigravityLegacyTui({
+    client: { instance: { dispose } },
+    keymap: { registerLayer: (layer) => { command = layer.commands[0] } },
+    ui: {
+      DialogSelect: (props) => ({ kind: "select", props }),
+      DialogAlert: (props) => ({ kind: "alert", props }),
+      dialog: { replace: (render) => { shown = render() as Shown }, clear },
+      toast,
+    },
+  })
+  if (!command) throw new Error("Account menu command was not registered")
+  const open = async () => {
+    command!.run()
+    await vi.waitFor(() => expect(shown?.props.title).toBe("Google accounts (Antigravity)"))
+  }
+  const pick = (value: unknown) => shown!.props.onSelect!({ value })
+  return { command, storage, dispose, toast, clear, open, pick, shown: () => shown }
+}
+
+describe("Antigravity OpenCode 1.x menu", () => {
+  it("is exported beside the OpenCode 2 setup", () => {
+    expect(TuiModule.id).toBe("opencode-antigravity-auth")
+    expect(TuiModule.setup).toBe(AntigravityTuiPlugin.setup)
+    expect(TuiModule.tui).toBe(antigravityLegacyTui)
+  })
+
+  it("opens from /antigravity and lists accounts with cached quota", async () => {
+    const host = await legacyHost()
+    expect(host.command.slashName).toBe("antigravity")
+    expect(host.command.slashAliases).toEqual(["ag"])
+    await host.open()
+    const options = host.shown()!.props.options!
+    expect(options.map(option => option.title)).toEqual(expect.arrayContaining(["Add account", "Manage an account…", "first@example.test [current]", "second@example.test"]))
+    expect(options).toContainEqual(expect.objectContaining({ value: 0, description: expect.stringMatching(/^81% · resets in /) }))
+    expect(options).toContainEqual(expect.objectContaining({ value: 1, description: "no quota data" }))
+  })
+
+  it("switches to a picked account around two instance reloads", async () => {
+    const host = await legacyHost()
+    await host.open()
+    host.pick(1)
+    await vi.waitFor(() => expect(host.toast).toHaveBeenCalledWith(expect.objectContaining({ message: "Switched to second@example.test" })))
+    expect(host.clear).toHaveBeenCalled()
+    expect(host.dispose).toHaveBeenCalledTimes(2)
+    expect(host.storage.activeIndex).toBe(1)
+    expect(host.storage.activeIndexByFamily).toEqual({ claude: 1, gemini: 1 })
+  })
+
+  it("closes without reloading when the current account is picked", async () => {
+    const host = await legacyHost()
+    await host.open()
+    host.pick(0)
+    expect(host.clear).toHaveBeenCalled()
+    expect(host.dispose).not.toHaveBeenCalled()
+  })
+
+  it("disabling the current account moves the selection to an enabled one", async () => {
+    const host = await legacyHost()
+    await host.open()
+    host.pick("manage")
+    host.pick(0)
+    expect(host.shown()!.props.options).toContainEqual(expect.objectContaining({ value: "select", disabled: true }))
+    host.pick("disable")
+    await vi.waitFor(() => expect(host.toast).toHaveBeenCalledWith(expect.objectContaining({ message: "Disabled first@example.test" })))
+    expect(host.storage.accounts[0]!.enabled).toBe(false)
+    expect(host.storage.activeIndex).toBe(1)
+  })
+
+  it("explains how to add an account with the 1.x CLI", async () => {
+    const host = await legacyHost()
+    await host.open()
+    host.pick("add")
+    expect(host.shown()).toEqual(expect.objectContaining({ kind: "alert", props: expect.objectContaining({ message: expect.stringContaining("opencode auth login google") }) }))
   })
 })
 

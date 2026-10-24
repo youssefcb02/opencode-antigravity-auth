@@ -1,6 +1,8 @@
 import type { Plugin } from "@opencode/plugin/tui"
 import type { LocationRef, OpenCodeClient } from "@opencode/client"
 import { AntigravityAccountsRpc, type AccountQuota, type AccountSummary } from "./plugin/account-rpc.ts"
+import { lowestCachedQuota } from "./plugin/account-management.ts"
+import { loadAccounts, updateAccounts, type AccountMetadataV3, type AccountStorageV4 } from "./plugin/storage.ts"
 
 /** Formats cached quota for the account list, e.g. "81% · resets in 2h 54m". */
 export function formatAccountQuota(quota: AccountQuota | undefined, now = Date.now()) {
@@ -16,7 +18,7 @@ export function formatAccountQuota(quota: AccountQuota | undefined, now = Date.n
   return `${percent} · resets in ${until}`
 }
 
-const accountTitle = (account: AccountSummary) =>
+const accountTitle = (account: Pick<AccountSummary, "email" | "current" | "enabled" | "verificationRequired">) =>
   `${account.email}${account.current ? " [current]" : ""}${account.enabled ? "" : " [disabled]"}${account.verificationRequired ? " [needs verification]" : ""}`
 
 // This plugin uses host dialogs and renders no JSX. Keep its public declarations
@@ -172,4 +174,150 @@ export const AntigravityTuiPlugin = {
   },
 } satisfies Plugin.Definition
 
-export default AntigravityTuiPlugin
+// OpenCode 1.x loads TUI plugins through `tui(api)` and has no account RPC, so this
+// menu reads and writes the account file directly with the host's 1.x dialogs.
+interface LegacyTuiApi {
+  readonly client: { readonly instance: { dispose(): Promise<unknown> } }
+  readonly keymap: {
+    registerLayer(layer: { commands: ReadonlyArray<{
+      name: string; title: string; desc: string; category: string; namespace: "palette"
+      slashName: string; slashAliases: string[]; run: () => void
+    }> }): unknown
+  }
+  readonly ui: {
+    DialogSelect<Value>(props: {
+      title: string; current?: Value
+      options: Array<{ title: string; value: Value; description?: string; category?: string; disabled?: boolean }>
+      onSelect?: (option: { value: Value }) => void
+    }): unknown
+    DialogAlert(props: { title: string; message: string; onConfirm?: () => void }): unknown
+    readonly dialog: { replace(render: () => unknown): void; clear(): void }
+    toast(input: { message: string; variant?: "info" | "success" | "error" }): void
+  }
+}
+
+const LEGACY_LOGIN_HINT = "Run `opencode auth login google` in a terminal and choose \"OAuth with Google (Antigravity)\", then restart OpenCode."
+
+const activeAccountIndex = (storage: AccountStorageV4) => storage.activeIndexByFamily?.claude ?? storage.activeIndex
+const sameAccount = (a: AccountMetadataV3, b: AccountMetadataV3) => a.id && b.id ? a.id === b.id : a.refreshToken === b.refreshToken
+
+function selectAccount(storage: AccountStorageV4, index: number) {
+  storage.activeIndex = index
+  storage.activeIndexByFamily = { ...storage.activeIndexByFamily, claude: index, gemini: index }
+}
+
+const legacyTitle = (account: AccountMetadataV3, current: boolean) => accountTitle({
+  email: account.email ?? "(no email)", current, enabled: account.enabled !== false, verificationRequired: account.verificationRequired === true,
+})
+
+export async function antigravityLegacyTui(api: LegacyTuiApi) {
+  const alert = (title: string, message: string) =>
+    api.ui.dialog.replace(() => api.ui.DialogAlert({ title, message, onConfirm: () => api.ui.dialog.clear() }))
+  const fail = (error: unknown) => alert("Antigravity", error instanceof Error ? error.message : String(error))
+
+  // The 1.x server plugin keeps the active account in memory and writes it back on
+  // save. The first reload flushes that manager; writing again after the second
+  // reload makes sure the file holds this change when the provider reloads from it.
+  async function commit(target: AccountMetadataV3, change: (storage: AccountStorageV4, index: number) => void) {
+    const apply = (storage: AccountStorageV4) => {
+      const index = storage.accounts.findIndex(account => sameAccount(account, target))
+      if (index < 0) throw new Error(`${target.email ?? "Account"} is no longer saved`)
+      change(storage, index)
+    }
+    await api.client.instance.dispose()
+    await updateAccounts(apply)
+    await api.client.instance.dispose()
+    await updateAccounts(apply)
+  }
+
+  async function use(account: AccountMetadataV3) {
+    await commit(account, selectAccount)
+    api.ui.toast({ message: `Switched to ${account.email ?? "account"}`, variant: "success" })
+  }
+
+  async function setEnabled(account: AccountMetadataV3, enabled: boolean) {
+    await commit(account, (storage, index) => {
+      storage.accounts[index]!.enabled = enabled
+      if (enabled || activeAccountIndex(storage) !== index) return
+      // A disabled account can't stay active; move to the next enabled one.
+      const next = storage.accounts.findIndex((item, i) => i !== index && item.enabled !== false)
+      if (next >= 0) selectAccount(storage, next)
+    })
+    api.ui.toast({ message: `${enabled ? "Enabled" : "Disabled"} ${account.email ?? "account"}`, variant: "success" })
+  }
+
+  function accountMenu(account: AccountMetadataV3, current: boolean) {
+    const enabled = account.enabled !== false
+    api.ui.dialog.replace(() => api.ui.DialogSelect<string>({
+      title: account.email ?? "Account",
+      options: [
+        { title: "Use this account", value: "select", disabled: !enabled || current },
+        { title: enabled ? "Disable account" : "Enable account", value: enabled ? "disable" : "enable" },
+        { title: "Re-authenticate / refresh token", value: "login" },
+        { title: "Back", value: "back" },
+      ],
+      onSelect: ({ value }) => {
+        if (value === "back") return void menu()
+        if (value === "login") return alert("Re-authenticate", LEGACY_LOGIN_HINT)
+        api.ui.dialog.clear()
+        const done = value === "select" ? use(account) : setEnabled(account, value === "enable")
+        done.catch(fail)
+      },
+    }))
+  }
+
+  function manage(storage: AccountStorageV4) {
+    const current = activeAccountIndex(storage)
+    api.ui.dialog.replace(() => api.ui.DialogSelect<number>({
+      title: "Manage account",
+      options: storage.accounts.map((account, index) => ({ title: legacyTitle(account, index === current), value: index })),
+      onSelect: ({ value }) => accountMenu(storage.accounts[value]!, value === current),
+    }))
+  }
+
+  async function menu() {
+    let storage: AccountStorageV4 | null
+    try {
+      storage = await loadAccounts()
+    } catch (error) {
+      return fail(error)
+    }
+    const accounts = storage?.accounts ?? []
+    const current = storage ? activeAccountIndex(storage) : -1
+    api.ui.dialog.replace(() => api.ui.DialogSelect<string | number>({
+      title: "Google accounts (Antigravity)",
+      current,
+      options: [
+        { title: "Add account", value: "add", category: "Actions" },
+        { title: "Manage an account…", value: "manage", category: "Actions", disabled: accounts.length === 0 },
+        ...accounts.map((account, index) => ({
+          title: legacyTitle(account, index === current),
+          value: index,
+          description: formatAccountQuota(lowestCachedQuota(account)),
+          category: "Accounts",
+          disabled: account.enabled === false,
+        })),
+        { title: "Close", value: "close", category: "Actions" },
+      ],
+      onSelect: ({ value }) => {
+        if (value === "add") return alert("Add account", LEGACY_LOGIN_HINT)
+        if (value === "manage") return storage && manage(storage)
+        api.ui.dialog.clear()
+        // Picking an account switches to it, like the model picker.
+        const account = typeof value === "number" ? accounts[value] : undefined
+        if (account && account.enabled !== false && value !== current) use(account).catch(fail)
+      },
+    }))
+  }
+
+  api.keymap.registerLayer({
+    commands: [{
+      name: "antigravity.accounts", title: "Antigravity accounts and quotas", desc: "Switch and manage Antigravity accounts",
+      category: "Antigravity", namespace: "palette", slashName: "antigravity", slashAliases: ["ag"],
+      run: () => void menu(),
+    }],
+  })
+}
+
+// One export serves both hosts: OpenCode 2 calls `setup`, OpenCode 1.x calls `tui`.
+export default { ...AntigravityTuiPlugin, tui: antigravityLegacyTui }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- The `/antigravity` (`/ag`) menu now loads on OpenCode 1.x. The TUI export only
+  had OpenCode 2's `setup()`, so 1.x skipped it. It now also exports `tui()`, which
+  lists accounts with cached quota, switches on pick, and enables or disables
+  accounts by editing the account file. Adding or re-authenticating an account on
+  1.x points to `opencode auth login google`.
+
 ## [2.2.0] - 2026-10-24
 
 ### Added
