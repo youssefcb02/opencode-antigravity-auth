@@ -18,7 +18,7 @@ Requires Node.js **20+**.
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": ["@youssefcb02/opencode-antigravity-auth@2.2.0"]
+  "plugins": ["@youssefcb02/opencode-antigravity-auth@2.2.1"]
 }
 ```
 
@@ -32,7 +32,7 @@ This adds the plugin to both `opencode.json(c)` and `tui.json`. The `/antigravit
 
 This fork is published as `@youssefcb02/opencode-antigravity-auth`. The upstream package is [`opencode-antigravity-auth`](https://github.com/NoeFabris/opencode-antigravity-auth).
 
-You can also install from GitHub: use `github:youssefcb02/opencode-antigravity-auth#v2.2.0` (built on install), or download the prebuilt `.tgz` from the [releases page](https://github.com/youssefcb02/opencode-antigravity-auth/releases).
+You can also install from GitHub: use `github:youssefcb02/opencode-antigravity-auth#v2.2.1` (built on install), or download the prebuilt `.tgz` from the [releases page](https://github.com/youssefcb02/opencode-antigravity-auth/releases).
 
 Then run:
 
